@@ -25,14 +25,16 @@ def load_images_from_folder(folder):
     for subdir in os.listdir(folder):
         subdir_path = os.path.join(folder, subdir)
         if os.path.isdir(subdir_path):
-            # Xử lý thư mục '999' như một lớp null
-            if subdir == '999':
+            # Hỗ trợ cả tên thư mục dạng ký tự (ví dụ: 'A', '0') hoặc mã ASCII (ví dụ: '65', '48')
+            if subdir == '999' or subdir.lower() == 'noise':
                 label = 999
+            elif len(subdir) == 1:
+                label = ord(subdir)
             else:
                 try:
                     label = int(subdir)
                 except ValueError:
-                    # Bỏ qua các thư mục không phải là mã ASCII hợp lệ hoặc '999'
+                    # Bỏ qua các thư mục không hợp lệ
                     continue
 
             for filename in os.listdir(subdir_path):
@@ -46,7 +48,7 @@ def load_images_from_folder(folder):
                     
     return np.array(images), np.array(labels)
 
-def train_knn_model(train_path, n_neighbors=5, model_save_path=None):
+def train_knn_model(train_path, n_neighbors=1, model_save_path=None):
     """
     Huấn luyện bộ phân loại kNN dựa trên các đặc trưng HOG.
     

@@ -7,9 +7,9 @@ IMG_HEIGHT = 48
 IMG_WIDTH = 48
 
 HOG_PARAMS = {
-    'orientations': 9,
+    'orientations': 6,
     'pixels_per_cell': (8, 8),
-    'cells_per_block': (2, 2),
+    'cells_per_block': (1, 1),
     'visualize': False
 }
 
