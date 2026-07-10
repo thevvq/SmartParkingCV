@@ -1,16 +1,38 @@
 # Python
 __pycache__/
 *.py[cod]
+*.egg-info/
 
 # Virtual Environment
 .venv/
 venv/
+env/
+env311/
 
 # Jupyter
 .ipynb_checkpoints/
 
-# Generated files
+# Dataset anh (qua nang, dung link Roboflow trong README)
+train/
+valid/
+test/
+
+# Output tu dong sinh ra khi chay notebook
 outputs/
+
+# Model training runs thu (chi giu best.pt trong models/run_1/)
+models/run_fast/
+models/*/weights/last.pt
+models/*/train_batch*.jpg
+models/*/val_batch*.jpg
+models/*/labels.jpg
+models/*/Box*.png
+models/*/confusion_matrix*.png
+models/*/results.png
+
+# YOLO cache
+*.cache
+runs/
 
 # IDE
 .vscode/
@@ -19,3 +41,8 @@ outputs/
 # OS
 .DS_Store
 Thumbs.db
+
+# Pretrained weights tai ve (nang)
+yolov8n.pt
+yolov8s.pt
+yolov8m.pt
