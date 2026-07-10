@@ -12,9 +12,8 @@ env311/
 # Jupyter
 .ipynb_checkpoints/
 
-# Dataset anh (qua nang, dung link Roboflow trong README)
+# Dataset anh (train/test qua nang, chi giu valid/ de demo)
 train/
-valid/
 test/
 
 # Output tu dong sinh ra khi chay notebook
