@@ -6,10 +6,20 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# Thêm đường dẫn gốc để import src
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Tính ROOT_DIR tự động — hoạt động đúng bất kể tên thư mục là experiments/ hay scripts/
+_this_file = os.path.abspath(__file__)
+_this_dir  = os.path.dirname(_this_file)   # thư mục chứa script này
+
+# Thử đi lên 1 cấp trước (script nằm trong sub-folder của root)
+_candidate = os.path.dirname(_this_dir)
+if os.path.isdir(os.path.join(_candidate, 'src')):
+    ROOT_DIR = _candidate
+else:
+    # Fallback: dùng thư mục hiện tại làm root
+    ROOT_DIR = _this_dir
+
 if ROOT_DIR not in sys.path:
-    sys.path.append(ROOT_DIR)
+    sys.path.insert(0, ROOT_DIR)
 
 from src.yolo_detector import YOLODetector
 from src.segment import segment_with_contour
