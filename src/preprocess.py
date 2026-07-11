@@ -190,16 +190,132 @@ def choose_threshold(gray: np.ndarray, method: str = "auto") -> tuple[str, np.nd
     return best_name, candidates[best_name], candidates
 
 
-def apply_morphology(binary: np.ndarray, kernel_size: int = 2) -> np.ndarray:
+def remove_border_components(binary: np.ndarray) -> np.ndarray:
+    """
+    Xóa các vùng trắng lớn chạm mép ảnh.
+    """
+    h, w = binary.shape[:2]
+
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
+        binary,
+        connectivity=8,
+    )
+
+    cleaned = binary.copy()
+
+    for label_id in range(1, num_labels):
+        x = stats[label_id, cv2.CC_STAT_LEFT]
+        y = stats[label_id, cv2.CC_STAT_TOP]
+        bw = stats[label_id, cv2.CC_STAT_WIDTH]
+        bh = stats[label_id, cv2.CC_STAT_HEIGHT]
+        area = stats[label_id, cv2.CC_STAT_AREA]
+
+        touches_border = (
+            x <= 1
+            or y <= 1
+            or x + bw >= w - 1
+            or y + bh >= h - 1
+        )
+
+        looks_like_border_noise = (
+            bw >= 0.45 * w
+            or bh >= 0.70 * h
+            or area >= 0.12 * h * w
+        )
+
+        if touches_border and looks_like_border_noise:
+            cleaned[labels == label_id] = 0
+
+    return cleaned
+
+def clear_edge_strip(
+        binary: np.ndarray,
+        edge_ratio: float = 0.02,
+    ) -> np.ndarray:
+        """
+        Tô đen một dải mỏng sát 4 mép ảnh.
+        """
+        h, w = binary.shape[:2]
+
+        pad_y = max(1, int(h * edge_ratio))
+        pad_x = max(1, int(w * edge_ratio))
+
+        cleaned = binary.copy()
+
+        cleaned[:pad_y, :] = 0
+        cleaned[h - pad_y:, :] = 0
+        cleaned[:, :pad_x] = 0
+        cleaned[:, w - pad_x:] = 0
+
+        return cleaned
+def remove_plate_frame_lines(binary: np.ndarray) -> np.ndarray:
+    """
+    Xóa các đường khung ngang và dọc dài của biển số.
+
+    Không xóa toàn bộ component nên ít làm mất ký tự hơn
+    remove_border_components().
+    """
+    h, w = binary.shape[:2]
+
+    horizontal_length = max(15, int(w * 0.35))
+    vertical_length = max(15, int(h * 0.55))
+
+    horizontal_kernel = cv2.getStructuringElement(
+        cv2.MORPH_RECT,
+        (horizontal_length, 1),
+    )
+
+    vertical_kernel = cv2.getStructuringElement(
+        cv2.MORPH_RECT,
+        (1, vertical_length),
+    )
+
+    horizontal_lines = cv2.morphologyEx(
+        binary,
+        cv2.MORPH_OPEN,
+        horizontal_kernel,
+    )
+
+    vertical_lines = cv2.morphologyEx(
+        binary,
+        cv2.MORPH_OPEN,
+        vertical_kernel,
+    )
+
+    frame_lines = cv2.bitwise_or(
+        horizontal_lines,
+        vertical_lines,
+    )
+
+    cleaned = cv2.bitwise_and(
+        binary,
+        cv2.bitwise_not(frame_lines),
+    )
+
+    return cleaned
+def apply_morphology(
+    binary: np.ndarray,
+    kernel_size: int = 2,
+) -> np.ndarray:
     """
     Làm sạch nhiễu nhỏ bằng morphology nhẹ.
-
-    Không dùng kernel quá lớn vì có thể làm mất nét mảnh của ký tự.
     """
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_size, kernel_size))
+    kernel = cv2.getStructuringElement(
+        cv2.MORPH_RECT,
+        (kernel_size, kernel_size),
+    )
 
-    opened = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
-    closed = cv2.morphologyEx(opened, cv2.MORPH_CLOSE, kernel)
+    opened = cv2.morphologyEx(
+        binary,
+        cv2.MORPH_OPEN,
+        kernel,
+    )
+
+    closed = cv2.morphologyEx(
+        opened,
+        cv2.MORPH_CLOSE,
+        kernel,
+    )
 
     return closed
 
@@ -269,7 +385,7 @@ def _preprocess_image(
     original = img.copy()
     h, w = original.shape[:2]
 
-    margin_y = int(h * 0.03)
+    margin_y = int(h * 0.05)
     margin_x = int(w * 0.03)
 
     original = original[
@@ -289,7 +405,12 @@ def _preprocess_image(
     denoised = cv2.bilateralFilter(enhanced, d=5, sigmaColor=45, sigmaSpace=45)
     sharp = unsharp_mask(denoised)
 
-    chosen_threshold, binary, candidates = choose_threshold(sharp, method=threshold_method)
+    chosen_threshold, binary, candidates = choose_threshold(denoised, method=threshold_method)
+    binary = clear_edge_strip(
+    binary,
+    edge_ratio=0.02,
+)
+    binary = remove_plate_frame_lines(binary)
     morph = apply_morphology(binary, kernel_size=morph_kernel)
 
     saved_to = None
@@ -535,9 +656,10 @@ def preprocess_directory(
         save_path = output_dir / f"{image_path.stem}_preprocessed.png"
 
         result = preprocess_plate(
-            crop_path=image_path,
-            save_path=save_path,
-        )
+    crop_path=image_path,
+    save_path=save_path,
+    threshold_method="otsu",
+)
 
         debug_grid_path = None
         if debug_dir is not None:
