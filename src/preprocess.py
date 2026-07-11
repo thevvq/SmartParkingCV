@@ -186,7 +186,7 @@ def choose_threshold(gray: np.ndarray, method: str = "auto") -> tuple[str, np.nd
             raise ValueError(f"Không có threshold method={method}. Có thể dùng: {list(candidates)}")
         return method, candidates[method], candidates
 
-    best_name = min(candidates, key=lambda name: score_binary(candidates[name]))
+    best_name = "otsu"
     return best_name, candidates[best_name], candidates
 
 
