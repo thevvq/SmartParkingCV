@@ -1,17 +1,38 @@
 # Python
 __pycache__/
 *.py[cod]
+*.egg-info/
 
 # Virtual Environment
 .venv/
 venv/
+env/
+env311/
 
 # Jupyter
 .ipynb_checkpoints/
 
+# Dataset
+dataset/
+train/
+test/
+
 # Generated files
 outputs/
-dataset/
+
+# YOLO training runs
+runs/
+models/run_fast/
+models/*/weights/last.pt
+models/*/train_batch*.jpg
+models/*/val_batch*.jpg
+models/*/labels.jpg
+models/*/Box*.png
+models/*/confusion_matrix*.png
+models/*/results.png
+
+# YOLO cache
+*.cache
 
 # IDE
 .vscode/
@@ -20,3 +41,8 @@ dataset/
 # OS
 .DS_Store
 Thumbs.db
+
+# Pretrained weights
+yolov8n.pt
+yolov8s.pt
+yolov8m.pt

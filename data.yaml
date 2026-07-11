@@ -1,0 +1,9 @@
+# Cấu hình dataset YOLOv8 trỏ thẳng về thư mục gốc
+path: D:/CV-Project
+train: train/images
+val: valid/images
+test: test/images
+
+nc: 1
+names:
+  0: license_plate
