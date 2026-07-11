@@ -267,6 +267,15 @@ def _preprocess_image(
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
     original = img.copy()
+    h, w = original.shape[:2]
+
+    margin_y = int(h * 0.03)
+    margin_x = int(w * 0.03)
+
+    original = original[
+        margin_y:h-margin_y,
+        margin_x:w-margin_x
+]
 
     resized, scale = resize_if_small(original, target_height=target_height)
 
@@ -655,7 +664,7 @@ def preprocess_from_yolo_result(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Tiền xử lý ảnh crop biển số.")
-    parser.add_argument("--input", default="dataset/crops", help="Thư mục ảnh crop biển số.")
+    parser.add_argument("--input",  default="valid/images", help="Thư mục ảnh crop biển số.")
     parser.add_argument("--output", default="outputs/preprocessed", help="Thư mục lưu ảnh cuối sau tiền xử lý.")
     parser.add_argument("--summary", default="outputs/preprocessing_summary.csv", help="File CSV tổng hợp.")
     parser.add_argument("--debug-dir", default="outputs/debug_grids", help="Thư mục lưu ảnh debug hàng ngang.")
