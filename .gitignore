@@ -27,7 +27,7 @@ models/*/val_batch*.jpg
 models/*/labels.jpg
 models/*/Box*.png
 models/*/confusion_matrix*.png
-models/*/results.png
+# models/*/results.png
 
 # YOLO cache
 *.cache

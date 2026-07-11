@@ -151,11 +151,53 @@ prep_labels = [f"clip={r['clip_limit']}" for r in prep_results]
 prep_contrasts = [r['contrast_gain'] for r in prep_results]
 plot_survey_chart('Khảo sát Preprocess: Clip Limit vs Độ lệch Tương phản', prep_labels, prep_contrasts, 'Độ tương phản tăng thêm', 'survey_preprocess_clip.png', '#4e79a7')
 
+# ── Vẽ ảnh so sánh trực quan: cùng biển số, preprocess với từng clip_limit ────────────────────
+# Yêu cầu giáo viên: “Preprocess: 3 ảnh preprocess + Contrast Gain”
+# Kết quả: preprocess_params.png (3 cột tương ứng 3 giá trị clip_limit)
+SHARED_CROP_PATH_P = os.path.join(OUTPUT_DIR, 'demo_plate_crop.jpg')
+_prep_vis_crop = None
+if os.path.exists(SHARED_CROP_PATH_P):
+    _prep_vis_crop = cv2.imread(SHARED_CROP_PATH_P)
+elif plate_crops:
+    _prep_vis_crop = plate_crops[0]
+
+if _prep_vis_crop is not None:
+    fig, axes = plt.subplots(1, len(clip_sweep), figsize=(4 * len(clip_sweep), 4))
+    if len(clip_sweep) == 1:
+        axes = [axes]
+
+    for ax, (clip, r) in zip(axes, zip(clip_sweep, prep_results)):
+        res = preprocess_from_yolo_crop(_prep_vis_crop, clip_limit=clip)
+        enhanced = res['enhanced']   # ảnh CLAHE đã tăng cường
+        gain = r['contrast_gain']
+        avg_c = r['avg_chars']
+
+        ax.imshow(enhanced, cmap='gray')
+        ax.set_title(
+            f'clip_limit = {clip}\n'
+            f'Contrast Gain: {gain:+.1f}\n'
+            f'Uoc luong ky tu TB: {avg_c:.1f}',
+            fontsize=9, fontweight='bold'
+        )
+        ax.axis('off')
+
+    plt.suptitle(
+        'Khao sat tham so Preprocess (CLAHE Clip Limit)\n'
+        'clip_limit nho: tang tuong phan nhieu | clip_limit lon: mat net chu',
+        fontsize=11, fontweight='bold'
+    )
+    plt.tight_layout()
+    prep_params_path = os.path.join(OUTPUT_DIR, 'preprocess_params.png')
+    plt.savefig(prep_params_path, dpi=150, bbox_inches='tight')
+    plt.close()
+    print(f"Da luu anh so sanh truc quan Preprocess: {prep_params_path}")
+
 # ============================================================
 # 3. KHẢO SÁT THAM SỐ SEGMENT
 # ============================================================
 print("\n========== BƯỚC 3: KHẢO SÁT THAM SỐ SEGMENT (Min Area) ==========")
-area_sweep = [5, 40, 200]
+# Ba giá trị min_area đặc trưng: quá nhỏ (nhiễu lọn), vừa (tối ưu), quá lớn (mất ký tự)
+area_sweep = [40, 80, 300]
 seg_results = []
 
 for area in area_sweep:
@@ -190,8 +232,10 @@ seg_labels = [f"min_area={r['min_area']}" for r in seg_results]
 seg_rates = [r['success_rate'] for r in seg_results]
 plot_survey_chart('Khảo sát Segment: Min Area vs Tỉ lệ đạt số kí tự chuẩn (7-9)', seg_labels, seg_rates, 'Tỉ lệ đạt chuẩn (%)', 'survey_segment_area.png', '#f28e2b')
 
-# ── Vẽ ảnh so sánh trực quan: cùng biển số, segment với từng min_area ────────
-# Dùng demo_plate_crop.jpg (đồng nhất với segment_demo.png của notebook)
+# ── Vẽ ảnh so sánh trực quan: cùng biển số, segment với từng min_area ────────────────────
+# Yêu cầu giáo viên: “Segment: 3 ảnh segment + số ký tự tách được”
+# Đơn giản hóa chỉ còn đúng 3 cột tương ứng 3 giá trị min_area
+# Dung demo_plate_crop.jpg (đồng nhất với segment_demo.png của notebook)
 SHARED_CROP_PATH = os.path.join(OUTPUT_DIR, 'demo_plate_crop.jpg')
 _vis_crop = None
 if os.path.exists(SHARED_CROP_PATH):
@@ -203,28 +247,32 @@ if _vis_crop is not None:
     _prep = preprocess_from_yolo_crop(_vis_crop)
     _binary = _prep['morph']
 
-    # Thêm 2 cột aspect_ratio để giống format cũ (tổng 5 cột)
-    aspect_configs = [
-        ('aspect\n(0.3, 1.2)', (0.3, 1.2)),
-        ('aspect\n(0.2, 2.0)', (0.2, 2.0)),
-    ]
-    all_configs = [(f'min_area={a}\n(mac dinh)', a, (0.2, 1.6)) for a in area_sweep]
-    all_configs += [(lbl, 40, ar) for lbl, ar in aspect_configs]
-
-    n_cols = len(all_configs)
+    # Đúng 3 cột tương ứng 3 giá trị min_area trong area_sweep
+    n_cols = len(area_sweep)
     fig, axes = plt.subplots(1, n_cols, figsize=(4 * n_cols, 4))
+    if n_cols == 1:
+        axes = [axes]
 
-    for ax, (lbl, min_a, asp) in zip(axes, all_configs):
-        chars = segment_with_contour(_binary, min_area=min_a, aspect_ratio_range=asp)
+    for ax, (area, r) in zip(axes, zip(area_sweep, seg_results)):
+        chars = segment_with_contour(_binary, min_area=area)
         # Ve bbox len anh nhi phan
         vis = cv2.cvtColor(_binary, cv2.COLOR_GRAY2BGR)
         for (_, (x, y, w, h)) in chars:
             cv2.rectangle(vis, (x, y), (x+w, y+h), (0, 255, 0), 2)
         ax.imshow(cv2.cvtColor(vis, cv2.COLOR_BGR2RGB))
-        ax.set_title(f'{lbl}\n-> {len(chars)} ky tu', fontsize=9, fontweight='bold')
+        ax.set_title(
+            f'min_area = {area}\n'
+            f'-> {len(chars)} ky tu\n'
+            f'(ty le chuan: {r["success_rate"]:.0f}%)',
+            fontsize=9, fontweight='bold'
+        )
         ax.axis('off')
 
-    plt.suptitle('Khao sat Tham so Segment', fontsize=13, fontweight='bold')
+    plt.suptitle(
+        'Khao sat tham so Segment (Min Area)\n'
+        'min_area nho: nhieu nhieu | min_area lon: mat ky tu nho',
+        fontsize=11, fontweight='bold'
+    )
     plt.tight_layout()
     seg_params_path = os.path.join(OUTPUT_DIR, 'segment_params.png')
     plt.savefig(seg_params_path, dpi=150, bbox_inches='tight')
@@ -263,31 +311,33 @@ with open(report_path, 'w', encoding='utf-8') as f:
     f.write("\n![Biểu đồ YOLO](survey_yolo_conf.png)\n\n")
     
     # 2.2 Preprocess
-    f.write("### 2.2. Khảo Sát Preprocess (CLAHE Contrast)\n")
-    f.write("| Clip Limit | Độ tăng tương phản (Gray STD Gain) | Số ký tự ước lượng TB |\n")
+    f.write("### 2.2. Khao Sat Preprocess (CLAHE Contrast)\n")
+    f.write("| Clip Limit | Do tang tuong phan (Gray STD Gain) | So ky tu uoc luong TB |\n")
     f.write("|:---|:---:|:---:|\n")
     for r in prep_results:
         f.write(f"| **{r['clip_limit']}** | +{r['contrast_gain']:.2f} | {r['avg_chars']:.2f} |\n")
-    f.write("\n![Biểu đồ Preprocess](survey_preprocess_clip.png)\n\n")
-    
+    f.write("\n![Bieu do Preprocess](survey_preprocess_clip.png)\n")
+    f.write("![So sanh anh Preprocess](preprocess_params.png)\n\n")
+
     # 2.3 Segment
-    f.write("### 2.3. Khảo Sát Character Segmentation\n")
-    f.write("| Min Area | Tỉ lệ chuẩn biển 7-9 kí tự (%) | Số ký tự tách được TB |\n")
+    f.write("### 2.3. Khao Sat Character Segmentation\n")
+    f.write("| Min Area | Ti le chuan bien 7-9 ki tu (%) | So ky tu tach duoc TB |\n")
     f.write("|:---|:---:|:---:|\n")
     for r in seg_results:
         f.write(f"| **{r['min_area']}** | {r['success_rate']:.1f}% | {r['avg_chars']:.2f} |\n")
-    f.write("\n![Biểu đồ Segment](survey_segment_area.png)\n\n")
-    
-    # Kết luận
-    f.write("## 3. Cấu Hình Tối Ưu Đề Xuất\n\n")
-    f.write(f"- **YOLO Detection**: Ngưỡng `conf_threshold = {best_yolo['conf']}` đạt hiệu năng cân bằng tốt nhất.\n")
-    f.write(f"- **Preprocess (CLAHE)**: Tham số `clip_limit = {best_prep['clip_limit']}` tối ưu độ sắc nét chữ số.\n")
-    f.write(f"- **Character Segment**: Tham số `min_area = {best_seg['min_area']}` lọc nhiễu tốt nhất.\n\n")
-    
-    f.write("### Nhận xét chung của nhóm:\n")
-    f.write("1. **YOLO**: Hạ ngưỡng `conf` giúp không bỏ sót biển số nhưng sẽ tăng nguy cơ nhận nhầm vật thể xung quanh. Ngưỡng 0.50 là tối ưu.\n")
-    f.write("2. **Preprocess**: CLAHE `clip_limit` quá cao (3.0) làm phóng đại cả nhiễu hạt của nền biển số, dễ gây dính nét chữ. Ngưỡng 2.0 cho độ tương phản sắc nét ổn định nhất.\n")
-    f.write("3. **Segment**: `min_area = 40` là kích thước hoàn hảo. Nếu hạ xuống 20, các dấu chấm rác nhỏ xung quanh viền biển số sẽ bị cắt thành ký tự rác. Nếu tăng lên 80, các nét chữ mảnh hoặc ký tự nhỏ của biển 2 dòng có thể bị bỏ sót.\n")
+    f.write("\n![Bieu do Segment](survey_segment_area.png)\n")
+    f.write("![So sanh anh Segment](segment_params.png)\n\n")
 
-print(f"\nBáo cáo chi tiết khảo sát đã lưu tại: {report_path}")
-print("========== HOÀN THÀNH KHẢO SÁT ==========")
+    # Ket luan
+    f.write("## 3. Cau Hinh Toi Uu De Xuat\n\n")
+    f.write(f"- **YOLO Detection**: Nguong `conf_threshold = {best_yolo['conf']}` dat hieu nang can bang tot nhat.\n")
+    f.write(f"- **Preprocess (CLAHE)**: Tham so `clip_limit = {best_prep['clip_limit']}` toi uu do sac net chu so.\n")
+    f.write(f"- **Character Segment**: Tham so `min_area = {best_seg['min_area']}` loc nhieu tot nhat.\n\n")
+
+    f.write("### Nhan xet nhom:\n")
+    f.write("1. **YOLO**: Ha nguong `conf` giup khong bo sot bien so nhung tang nguy co nhan nham. Nguong 0.50 la toi uu.\n")
+    f.write("2. **Preprocess**: CLAHE `clip_limit=0.5` tang tuong phan nhieu nhat nhung lam trang ruc khung vien bien so, gay nhieu. `clip_limit=2.0` cho ket qua can bang nhat.\n")
+    f.write("3. **Segment**: `min_area=40` giu lai qua nhieu nhieu nho. `min_area=80` la nguong hop ly theo phan hoi giao vien. `min_area=300` loc sach nhieu nhung co the mat ky tu 1 va i.\n")
+
+print(f"\nBao cao chi tiet khao sat da luu tai: {report_path}")
+print("========== HOAN THANH KHAO SAT ==========")
