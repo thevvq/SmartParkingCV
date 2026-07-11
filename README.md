@@ -11,31 +11,34 @@
 ## Pipeline xử lý
 
 ```text
-Ảnh xe
+Ảnh xe đầu vào
     │
     ▼
 YOLO phát hiện biển số
     │
     ▼
-Crop biển số
+Crop vùng biển số
     │
     ▼
-Grayscale
+Resize + Grayscale
     │
     ▼
-CLAHE
+Percentile Stretch + Auto Gamma
     │
     ▼
-Gaussian Blur
+CLAHE (tăng cường tương phản cục bộ)
     │
     ▼
-Adaptive Threshold
+Bilateral Filter + Unsharp Mask (giảm nhiễu, làm nét)
     │
     ▼
-Morphology
+Threshold nhị phân (Otsu)
     │
     ▼
-Segment ký tự
+Morphology (làm sạch nhiễu)
+    │
+    ▼
+Segment ký tự (contour-based)
     │
     ▼
 HOG trích xuất đặc trưng
@@ -54,9 +57,13 @@ Biển số hoàn chỉnh
 - Python
 - Jupyter Notebook
 - OpenCV
-- Ultralytics YOLO
+- Ultralytics YOLOv8
 - NumPy
 - scikit-learn
+- scikit-image
+- Matplotlib
+- PyTorch
+- Roboflow (thu thập dữ liệu)
 
 ---
 
@@ -64,11 +71,24 @@ Biển số hoàn chỉnh
 
 ```text
 .
-├── notebook.ipynb
-├── dataset/
-├── models/
-├── outputs/
-├── requirements.txt
+├── pipeline_notebook.ipynb   # Notebook chạy pipeline từng bước
+├── data.yaml                 # Cấu hình dataset cho YOLO
+├── requirements.txt          # Thư viện cần cài đặt
+├── src/                      # Mã nguồn các module
+│   ├── yolo_detector.py      #   Phát hiện biển số bằng YOLO
+│   ├── preprocess.py         #   Tiền xử lý ảnh (resize, CLAHE, threshold, morphology…)
+│   ├── segment.py            #   Tách ký tự bằng contour
+│   ├── hog_feature.py        #   Trích xuất đặc trưng HOG
+│   └── knn_classifier.py     #   Phân loại ký tự bằng kNN
+├── scripts/                  # Script hỗ trợ
+│   ├── param_survey.py       #   Khảo sát tham số
+│   ├── train_knn.py          #   Huấn luyện mô hình kNN
+│   └── yolo_preprocess_seg_survey.py
+├── models/                   # Mô hình đã huấn luyện
+│   └── knn_hog_model.joblib  #   Mô hình kNN + HOG
+├── dataset/                  # Dữ liệu huấn luyện
+├── valid/                    # Dữ liệu kiểm thử
+├── experiments/              # Thí nghiệm khảo sát
 └── README.md
 ```
 
@@ -85,28 +105,34 @@ pip install -r requirements.txt
 ### 2. Mở Notebook
 
 ```bash
-jupyter notebook
+jupyter notebook pipeline_notebook.ipynb
 ```
 
 ### 3. Chạy lần lượt các cell từ trên xuống dưới.
+
+> **Lưu ý:** Thay đổi đường dẫn ảnh đầu vào tại **Bước 1** trong notebook nếu muốn thử ảnh khác.
 
 ---
 
 ## Nội dung Notebook
 
-Notebook được trình bày theo các phần:
+`pipeline_notebook.ipynb` trình bày pipeline theo 13 bước:
 
-1. Phát biểu mục tiêu
-2. Giới thiệu bài toán
-3. Chuẩn bị dữ liệu
-4. Huấn luyện YOLO
-5. Phát hiện biển số
-6. Tiền xử lý ảnh
-7. Segment ký tự
-8. Trích xuất đặc trưng bằng HOG
-9. Huấn luyện và nhận dạng bằng kNN
-10. Đánh giá kết quả
-11. Kết luận
+| Bước | Tên                                     | Mô tả                                           |
+| ---- | ---------------------------------------- | ------------------------------------------------ |
+| 0    | Import thư viện và cấu hình             | Nạp các module từ `src/`, khai báo đường dẫn     |
+| 1    | Đọc ảnh xe đầu vào                      | Đọc và hiển thị ảnh xe                           |
+| 2    | YOLO – Phát hiện biển số                | Dùng YOLOv8 detect vùng biển số                  |
+| 3    | Crop vùng biển số                        | Cắt vùng biển số từ ảnh gốc                      |
+| 4    | Grayscale                                | Resize + chuyển ảnh sang xám                     |
+| 5    | CLAHE                                    | Percentile Stretch → Auto Gamma → CLAHE          |
+| 6    | Bilateral Filter + Unsharp Mask          | Giảm nhiễu và làm nét cạnh                       |
+| 7    | Threshold nhị phân                       | Nhị phân hóa ảnh bằng Otsu                       |
+| 8    | Morphology                               | Làm sạch nhiễu bằng phép toán hình thái          |
+| 9    | Segment ký tự                            | Tách từng ký tự bằng contour                     |
+| 10   | HOG                                      | Trích xuất đặc trưng HOG cho từng ký tự          |
+| 11   | kNN                                      | Nhận dạng ký tự bằng mô hình kNN                 |
+| 12   | Biển số hoàn chỉnh                       | Ghép kết quả và hiển thị biển số nhận dạng được   |
 
 ---
 
