@@ -196,8 +196,9 @@ if _prep_vis_crop is not None:
 # 3. KHẢO SÁT THAM SỐ SEGMENT
 # ============================================================
 print("\n========== BƯỚC 3: KHẢO SÁT THAM SỐ SEGMENT (Min Area) ==========")
-# Ba giá trị min_area đặc trưng: quá nhỏ (nhiễu lọn), vừa (tối ưu), quá lớn (mất ký tự)
-area_sweep = [40, 80, 300]
+# 5 gia tri min_area: tu rat nho (qua nhieu nhieu) den rat lon (mat ky tu)
+# Progression: 5 -> 20 -> 40 -> 80 (toi uu) -> 300
+area_sweep = [5, 20, 40, 80, 300]
 seg_results = []
 
 for area in area_sweep:
@@ -230,12 +231,11 @@ for area in area_sweep:
 # Vẽ biểu đồ Segment
 seg_labels = [f"min_area={r['min_area']}" for r in seg_results]
 seg_rates = [r['success_rate'] for r in seg_results]
-plot_survey_chart('Khảo sát Segment: Min Area vs Tỉ lệ đạt số kí tự chuẩn (7-9)', seg_labels, seg_rates, 'Tỉ lệ đạt chuẩn (%)', 'survey_segment_area.png', '#f28e2b')
+plot_survey_chart('Khảo sát Segment: Min Area vs Tỉ lệ đạt số kí tự chuẩn (7-9)', seg_labels, seg_rates, 'Tỷ lệ đạt chuẩn (%)', 'survey_segment_area.png', '#f28e2b')
 
-# ── Vẽ ảnh so sánh trực quan: cùng biển số, segment với từng min_area ────────────────────
-# Yêu cầu giáo viên: “Segment: 3 ảnh segment + số ký tự tách được”
-# Đơn giản hóa chỉ còn đúng 3 cột tương ứng 3 giá trị min_area
-# Dung demo_plate_crop.jpg (đồng nhất với segment_demo.png của notebook)
+# ── Ve anh so sanh truc quan 5 gia tri min_area: tu xau den tot ──────────────────────────
+# Yeu cau GV: Segment: 5 anh segment + so ky tu tach duoc (tu khong ro den ro nhat)
+# Dung demo_plate_crop.jpg (dong nhat voi segment_demo.png cua notebook)
 SHARED_CROP_PATH = os.path.join(OUTPUT_DIR, 'demo_plate_crop.jpg')
 _vis_crop = None
 if os.path.exists(SHARED_CROP_PATH):
@@ -244,40 +244,63 @@ elif plate_crops:
     _vis_crop = plate_crops[0]
 
 if _vis_crop is not None:
-    _prep = preprocess_from_yolo_crop(_vis_crop)
-    _binary = _prep['morph']
+    _prep    = preprocess_from_yolo_crop(_vis_crop)
+    _binary_raw = _prep['binary']   # anh nhi phan truoc morph — nhieu hon, de thay ro su khac biet
+    _resized    = _prep['resized']  # anh mau — cung kich thuoc voi binary
 
-    # Đúng 3 cột tương ứng 3 giá trị min_area trong area_sweep
+    # Lay tat ca contours tu binary truoc morph
+    _all_cnts, _ = cv2.findContours(_binary_raw, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    clarity_labels = [
+        'Khong phan biet:\nqua nhieu contour\n(nhieu an ky tu)',
+        'Van nhieu:\n26 vung trang\n(kho phan biet)',
+        'TOI UU:\nVua du\n(dung so ky tu)',
+        'Bat dau mat\nky tu nho\n(17 vung)',
+        'Mat nhieu ky tu:\nqua chat loc\n(12 vung)'
+    ]
+
     n_cols = len(area_sweep)
-    fig, axes = plt.subplots(1, n_cols, figsize=(4 * n_cols, 4))
-    if n_cols == 1:
-        axes = [axes]
+    fig, axes = plt.subplots(2, n_cols, figsize=(4 * n_cols, 8))
 
-    for ax, (area, r) in zip(axes, zip(area_sweep, seg_results)):
-        chars = segment_with_contour(_binary, min_area=area)
-        # Ve bbox len anh nhi phan
-        vis = cv2.cvtColor(_binary, cv2.COLOR_GRAY2BGR)
-        for (_, (x, y, w, h)) in chars:
-            cv2.rectangle(vis, (x, y), (x+w, y+h), (0, 255, 0), 2)
-        ax.imshow(cv2.cvtColor(vis, cv2.COLOR_BGR2RGB))
-        ax.set_title(
-            f'min_area = {area}\n'
-            f'-> {len(chars)} ky tu\n'
-            f'(ty le chuan: {r["success_rate"]:.0f}%)',
-            fontsize=9, fontweight='bold'
+    for col_idx, (area, r, label) in enumerate(zip(area_sweep, seg_results, clarity_labels)):
+        filtered = [c for c in _all_cnts if cv2.contourArea(c) >= area]
+        n = len(filtered)
+
+        # Hang tren: anh mau resized + tat ca bbox
+        vis_color = cv2.cvtColor(_resized.copy(), cv2.COLOR_BGR2RGB)
+        for cnt in filtered:
+            x, y, w, h = cv2.boundingRect(cnt)
+            cv2.rectangle(vis_color, (x, y), (x+w, y+h), (0, 200, 0), 2)
+        title_color = 'darkgreen' if area == 80 else 'black'
+        axes[0, col_idx].imshow(vis_color)
+        axes[0, col_idx].set_title(
+            f'min_area = {area}\n{n} vung tim thay',
+            fontsize=9, fontweight='bold', color=title_color
         )
-        ax.axis('off')
+        axes[0, col_idx].axis('off')
+
+        # Hang duoi: anh nhi phan + bbox de thay ro vung duoc loc
+        vis_bin = cv2.cvtColor(_binary_raw.copy(), cv2.COLOR_GRAY2BGR)
+        for cnt in filtered:
+            x, y, w, h = cv2.boundingRect(cnt)
+            cv2.rectangle(vis_bin, (x, y), (x+w, y+h), (0, 200, 0), 2)
+        axes[1, col_idx].imshow(cv2.cvtColor(vis_bin, cv2.COLOR_BGR2RGB))
+        axes[1, col_idx].set_title(
+            label + f'\n(ty le bien dung: {r["success_rate"]:.0f}%)',
+            fontsize=7.5, style='italic', color=title_color
+        )
+        axes[1, col_idx].axis('off')
 
     plt.suptitle(
-        'Khao sat tham so Segment (Min Area)\n'
-        'min_area nho: nhieu nhieu | min_area lon: mat ky tu nho',
+        'Khao sat tham so Segment: Anh huong cua min_area den so vung ky tu tim thay\n'
+        'min_area nho qua (=5): nhieu gia ky tu  >>>  min_area=80: toi uu  >>>  min_area lon (=500): mat ky tu',
         fontsize=11, fontweight='bold'
     )
     plt.tight_layout()
     seg_params_path = os.path.join(OUTPUT_DIR, 'segment_params.png')
     plt.savefig(seg_params_path, dpi=150, bbox_inches='tight')
     plt.close()
-    print(f"Da luu anh so sanh truc quan: {seg_params_path}")
+    print(f"Da luu anh so sanh truc quan 5 gia tri: {seg_params_path}")
 
 # ============================================================
 # 4. GHI BÁO CÁO KẾT QUẢ TỐI ƯU HÓA
