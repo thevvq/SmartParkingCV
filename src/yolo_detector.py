@@ -79,13 +79,14 @@ class YOLODetector:
                     })
         return detections
     
-    def crop_plate(self, image, padding_ratio=0.05):
+    def crop_plate(self, image, padding_ratio=0.0, shrink_border=0.08):
         """
-        Crop vùng biển số với padding.
+        Crop vùng biển số với tùy chọn thu nhỏ sâu để loại viền và vỏ xe xung quanh.
         
         Args:
             image (numpy.ndarray): Ảnh đầu vào (BGR).
-            padding_ratio (float): Tỉ lệ mở rộng bbox (0-1).
+            padding_ratio (float): Tỉ lệ mở rộng bbox ra ngoài (0-1). Mặc định 0.0.
+            shrink_border (float): Tỉ lệ thu nhỏ bbox vào trong (0-1). Mặc định 0.08 (8%).
             
         Returns:
             tuple: (cropped_image, confidence) hoặc (None, 0.0) nếu không detect.
@@ -99,11 +100,24 @@ class YOLODetector:
         x1, y1, x2, y2 = best['bbox']
         h, w = image.shape[:2]
         
-        # Tính padding
-        pad_x = int((x2 - x1) * padding_ratio)
-        pad_y = int((y2 - y1) * padding_ratio)
+        bw = x2 - x1  # chiều rộng biển số
+        bh = y2 - y1  # chiều cao biển số
         
-        # Áp dụng padding, giới hạn trong biên ảnh
+        # Bước 1: Thu nhỏ sâu vào trong 8% để loại bỏ viền và vỏ xe mà không mất chữ
+        shrink_x = int(bw * shrink_border)
+        shrink_y = int(bh * shrink_border)
+        x1 = x1 + shrink_x
+        y1 = y1 + shrink_y
+        x2 = x2 - shrink_x
+        y2 = y2 - shrink_y
+        
+        # Tự động triệt tiêu padding nếu shrink_border đang được bật (tránh kéo viền xe quay lại)
+        if shrink_border > 0:
+            padding_ratio = 0.0
+            
+        # Bước 2: Áp dụng padding nếu có (chỉ dùng khi không shrink)
+        pad_x = int(bw * padding_ratio)
+        pad_y = int(bh * padding_ratio)
         x1 = max(0, x1 - pad_x)
         y1 = max(0, y1 - pad_y)
         x2 = min(w, x2 + pad_x)
