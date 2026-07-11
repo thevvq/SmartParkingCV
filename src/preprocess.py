@@ -92,17 +92,29 @@ def make_threshold_candidates(gray: np.ndarray) -> dict[str, np.ndarray]:
     return candidates
 
 
-def choose_threshold(gray: np.ndarray, method: str = "auto") -> tuple[str, np.ndarray, dict[str, np.ndarray]]:
-    """Chọn threshold (mặc định ưu tiên Otsu)."""
+def choose_threshold(
+    gray: np.ndarray,
+    method: str = "otsu"
+) -> tuple[str, np.ndarray, dict[str, np.ndarray]]:
+    """
+    Chọn phương pháp threshold.
+
+    Mặc định sử dụng Otsu.
+    Có thể chọn:
+        - otsu
+        - adaptive21
+        - adaptive31
+        - adaptive41
+    """
     candidates = make_threshold_candidates(gray)
 
-    if method != "auto":
-        if method not in candidates:
-            raise ValueError(f"Không có threshold method={method}. Có thể dùng: {list(candidates)}")
-        return method, candidates[method], candidates
+    if method not in candidates:
+        raise ValueError(
+            f"Không có threshold method='{method}'. "
+            f"Có thể dùng: {list(candidates.keys())}"
+        )
 
-    best_name = "otsu"
-    return best_name, candidates[best_name], candidates
+    return method, candidates[method], candidates
 
 
 def apply_morphology(binary: np.ndarray, kernel_size: int = 2) -> np.ndarray:
