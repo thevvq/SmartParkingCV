@@ -41,9 +41,7 @@ def load_images_from_folder(folder):
                 img_path = os.path.join(subdir_path, filename)
                 img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
                 if img is not None:
-                    # Resize về kích thước 48x48
-                    img_resized = cv2.resize(img, (48, 48))
-                    images.append(img_resized)
+                    images.append(img)
                     labels.append(label)
                     
     return np.array(images), np.array(labels)

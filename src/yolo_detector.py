@@ -79,7 +79,7 @@ class YOLODetector:
                     })
         return detections
     
-    def crop_plate(self, image, padding_ratio=0.0, shrink_border=0.08):
+    def crop_plate(self, image, padding_ratio=0.0, shrink_border=0.0):
         """
         Crop vùng biển số với tùy chọn thu nhỏ sâu để loại viền và vỏ xe xung quanh.
         
